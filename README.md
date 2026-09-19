@@ -51,3 +51,12 @@ write a CSV copy, read it back, convert to Snappy Parquet in `processed/`, presi
 
 Same 2,964,624 rows x 19 columns. Parquet is 5.2x smaller and 9x faster to read over the network.
 CSV also lost the timestamp types (came back as strings) and threw a mixed-dtype warning; Parquet keeps the schema.
+
+### Day 6 - EC2
+- Launched a `t3.micro` (Amazon Linux 2023) in `ca-central-1`, SSH open to my IP only.
+- No keys copied to the box: an instance role (`ec2-ds-lab-s3-read`, trust policy in
+  [`iam/ec2-s3-read-trust.json`](iam/ec2-s3-read-trust.json)) lets the CLI on the instance read the bucket.
+- Row count from a Parquet footer on a 1 GB machine without loading the file: 2,964,624 rows (matches Day 5).
+- S3 -> EC2 download ran at ~130 MB/s inside the AWS network, vs a few MB/s from home. Data and compute belong in the same region.
+- Write test from the instance: `AccessDenied ... assumed-role/ec2-ds-lab-s3-read` - the role, not my user, is the identity.
+- Instance table: [`notes/ec2-instances.md`](notes/ec2-instances.md). Terminated the same day.
