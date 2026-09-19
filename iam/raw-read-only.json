@@ -1,0 +1,20 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListRootAndRawPrefix",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::dave-ds-lab-ca",
+      "Condition": {
+        "StringLike": { "s3:prefix": ["", "raw", "raw/*"] }
+      }
+    },
+    {
+      "Sid": "ReadObjectsInRawOnly",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::dave-ds-lab-ca/raw/*"
+    }
+  ]
+}

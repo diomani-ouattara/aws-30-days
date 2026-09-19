@@ -1,0 +1,17 @@
+# AWS credentials - never commit
+.aws/
+*.pem
+*.csv.key
+accessKeys*.csv
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/
+
+# Data and model artifacts stay in S3, not git
+data/
+*.parquet
+*.tar.gz
