@@ -16,3 +16,37 @@ Region: `ca-central-1`. One account, one bucket, one dataset.
 - Tested as `ds-analyst`: `raw/` readable, `models/` denied, upload denied.
 - Lesson: to IAM, "not visible" and "denied" are the same thing - the console just
   doesn't show folders it can't list.
+
+### Day 3 - CLI and boto3
+- AWS CLI v2, profile `ds` (region `ca-central-1`). `aws sts get-caller-identity` is the first
+  thing to run on any Access Denied.
+- [`whoami.py`](whoami.py): boto3 session on the same profile, prints account, ARN, buckets.
+
+### Day 4 - S3 layout
+Bucket `dave-ds-lab-ca`, versioning on, public access blocked.
+
+| Prefix       | What goes there                                  |
+|--------------|--------------------------------------------------|
+| `raw/`       | Source files exactly as received. Never edited.  |
+| `processed/` | Cleaned, typed Parquet.                          |
+| `features/`  | Model-ready tables (versioned: `features/v1/`).  |
+| `models/`    | Trained artifacts + `metrics.json`.              |
+| `outputs/`   | Predictions, Athena results. Lifecycle: expire after 30 days. |
+
+Dataset: NYC TLC yellow taxi, Jan-Mar 2024, ~50 MB Parquet per month
+([`scripts/get_data.py`](scripts/get_data.py)). Uploaded with `aws s3 sync data/ s3://dave-ds-lab-ca/raw/`.
+
+Storage classes, ca-central-1 (per GB-month, approx):
+Standard ~$0.025 | Intelligent-Tiering ~$0.025 + monitoring | Glacier Flexible ~$0.004 | Deep Archive ~$0.002.
+Deep Archive is ~10x cheaper than Standard but retrieval takes hours and costs extra.
+
+### Day 5 - S3 from pandas
+[`notebooks/01_s3_io.ipynb`](notebooks/01_s3_io.ipynb): read Parquet straight from `s3://`,
+write a CSV copy, read it back, convert to Snappy Parquet in `processed/`, presigned URL.
+
+| Format  | Size   | Read time |
+|---------|--------|-----------|
+| CSV     | ___ MB | ___ s     |
+| Parquet | ___ MB | ___ s     |
+
+<!-- fill in from the notebook output -->
