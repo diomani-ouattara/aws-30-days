@@ -4,7 +4,7 @@ Family letters: `t` burstable (cheap, idle-friendly) · `m` general purpose · `
 `r` memory-heavy · `g`/`p` GPU (`g` = inference/small training, `p` = big training).
 Sizes double each step: large = 2 vCPU, xlarge = 4, 2xlarge = 8 ...
 
-Prices are ca-central-1, on-demand, Linux, USD/hour. Approximate — verified on ___ (date)
+Prices are ca-central-1, on-demand, Linux, USD/hour. Verified 2026-09-19
 against https://aws.amazon.com/ec2/pricing/on-demand/ and EC2 console → Spot Requests → Pricing history.
 
 | Type          | vCPU | RAM (GiB) | On-demand $/h | Spot $/h (typ.) | When a data scientist picks it |

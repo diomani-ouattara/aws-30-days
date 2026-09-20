@@ -60,3 +60,19 @@ CSV also lost the timestamp types (came back as strings) and threw a mixed-dtype
 - S3 -> EC2 download ran at ~130 MB/s inside the AWS network, vs a few MB/s from home. Data and compute belong in the same region.
 - Write test from the instance: `AccessDenied ... assumed-role/ec2-ds-lab-s3-read` - the role, not my user, is the identity.
 - Instance table: [`notes/ec2-instances.md`](notes/ec2-instances.md). Terminated the same day.
+
+### Day 7 - Week 1 review
+Month-to-date cost: **$0.00** (Cost Explorer, grouped by service - see [`docs/week1-cost-explorer.png`](docs/week1-cost-explorer.png)).
+S3 storage and one EC2 hour both fit inside the free allowance.
+
+**What I built this week**
+
+<!-- your words: account -> IAM -> CLI -> S3 -> pandas -> EC2 -->
+
+**One thing that surprised me**
+
+<!-- your words -->
+
+**What I'd tell someone starting Day 1**
+
+<!-- your words -->
