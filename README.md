@@ -95,7 +95,24 @@ S3 storage and one EC2 hour both fit inside the free allowance.
 
 | Query                | Parquet scanned | CSV scanned |
 |----------------------|-----------------|-------------|
-| COUNT(*)             | ___             | ___         |
-| avg tip by payment   | ___             | ___         |
+| COUNT(*) (January)   | 41.3 MB         | 313.6 MB    |
+| avg tip by payment   | 46.4 MB         | 313.6 MB    |
+| SELECT * / 2 cols, LIMIT 10 | 30.4 / 10.4 MB | -     |
+
+CTAS `yellow_clean`: 9,210,888 rows kept of 9,554,778 (3.6% dropped by the filters), 160 MB scanned, 11 s, one 209 MB Parquet file.
 
 Athena bills $5/TB scanned. Parquet wins twice: compressed (fewer bytes) and columnar (only the columns you name).
+
+### Day 10 - Partitioning
+[`sql/02_partition.sql`](sql/02_partition.sql): CTAS `yellow_part`, partitioned by `year`/`month`, 2 buckets per partition.
+
+| Query: avg tip by payment type, January | Scanned | Time |
+|------------------------------------------|---------|------|
+| `yellow_clean`, timestamp filter          | ___     | ___  |
+| `yellow_part`, timestamp filter           | ___     | ___  |
+| `yellow_part`, `year = 2024 AND month = 1` | ___    | ___  |
+
+Partition pruning only kicks in when the WHERE clause uses the partition columns. Same table, same question,
+filtered the "wrong" way, costs the same as no partitioning at all.
+Small-files rule: aim for 128 MB - 1 GB per Parquet file. Thousands of 1 MB files make every query slow
+regardless of partitioning (each file is an S3 request).
