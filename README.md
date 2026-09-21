@@ -76,3 +76,14 @@ S3 storage and one EC2 hour both fit inside the free allowance.
 **What I'd tell someone starting Day 1**
 
 <!-- your words -->
+
+## Week 2 - SQL over the data lake
+
+### Day 8 - Glue Data Catalog
+- Reorganized `raw/` so each table has its own prefix and one file format:
+  `raw/yellow/` (3 Parquet months) and `raw/yellow_csv/` (January as CSV). One table = one prefix = one format.
+- Database `ds_lab`. Crawler over `processed/` produced table `processed`; it inferred `passenger_count` and
+  `ratecodeid` as `double` - correct for that file (the CSV round-trip on Day 5 turned nullable ints into floats),
+  but not what the source data means. Crawlers describe files; they don't know intent.
+- Hand-written [`ddl/trips.sql`](ddl/trips.sql) -> `ds_lab.yellow_raw` over `raw/yellow/`, types taken from
+  the original Parquet schema. Row count: ___ .
