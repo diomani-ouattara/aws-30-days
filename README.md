@@ -86,4 +86,16 @@ S3 storage and one EC2 hour both fit inside the free allowance.
   `ratecodeid` as `double` - correct for that file (the CSV round-trip on Day 5 turned nullable ints into floats),
   but not what the source data means. Crawlers describe files; they don't know intent.
 - Hand-written [`ddl/trips.sql`](ddl/trips.sql) -> `ds_lab.yellow_raw` over `raw/yellow/`, types taken from
-  the original Parquet schema. Row count: ___ .
+  the original Parquet schema. Row count: 9,554,778 - and `COUNT(*)` scanned **0 bytes**: Parquet keeps row counts in the file footer, so Athena never read the data.
+
+### Day 9 - Athena
+- [`ddl/trips_csv.sql`](ddl/trips_csv.sql): CSV table over `raw/yellow_csv/` for the comparison.
+- [`sql/01_explore.sql`](sql/01_explore.sql): five queries with bytes scanned in comments.
+- [`sql/01_ctas_clean.sql`](sql/01_ctas_clean.sql): CTAS -> `ds_lab.yellow_clean`, Parquet in `processed/yellow_clean/`.
+
+| Query                | Parquet scanned | CSV scanned |
+|----------------------|-----------------|-------------|
+| COUNT(*)             | ___             | ___         |
+| avg tip by payment   | ___             | ___         |
+
+Athena bills $5/TB scanned. Parquet wins twice: compressed (fewer bytes) and columnar (only the columns you name).
