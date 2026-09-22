@@ -108,11 +108,31 @@ Athena bills $5/TB scanned. Parquet wins twice: compressed (fewer bytes) and col
 
 | Query: avg tip by payment type, January | Scanned | Time |
 |------------------------------------------|---------|------|
-| `yellow_clean`, timestamp filter          | ___     | ___  |
-| `yellow_part`, timestamp filter           | ___     | ___  |
-| `yellow_part`, `year = 2024 AND month = 1` | ___    | ___  |
+| `yellow_clean`, timestamp filter          | 62.4 MB | 1.3 s |
+| `yellow_part`, timestamp filter           | 70.1 MB | 1.6 s |
+| `yellow_part`, `year = 2024 AND month = 1` | **4.7 MB** | 0.9 s |
 
 Partition pruning only kicks in when the WHERE clause uses the partition columns. Same table, same question,
 filtered the "wrong" way, costs the same as no partitioning at all.
 Small-files rule: aim for 128 MB - 1 GB per Parquet file. Thousands of 1 MB files make every query slow
 regardless of partitioning (each file is an S3 request).
+
+### Day 11 - Feature engineering in SQL
+[`sql/03_features.sql`](sql/03_features.sql) -> `ds_lab.trip_features_v1`, Parquet in `features/v1/`,
+partitioned by `split`. [`notebooks/02_check_features.py`](notebooks/02_check_features.py) reads it back and checks it.
+
+Three leakage traps this query avoids:
+1. **Date-based split, not random.** Train = Jan + Feb, validate = Mar. A random split would let the model
+   see trips from the same hour and zone on both sides.
+2. **Zone tip-rate computed on training months only.** Target encoding over all data would carry March's
+   answers into a March feature.
+3. **`total_amount` excluded.** It is fare + tip, so it contains the target. Left in, the model scores
+   ~1.0 and is worthless.
+
+Also: credit-card trips only (`payment_type = 1`) - cash tips are never recorded, so their `tip_amount = 0`
+is missing data disguised as a real value.
+
+| Split | Rows | Mean tip |
+|-------|------|----------|
+| train (Jan-Feb) | ___ | ___ |
+| valid (Mar)     | ___ | ___ |
