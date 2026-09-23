@@ -143,3 +143,22 @@ is missing data disguised as a real value.
 [`notes/warehouse-vs-lake.md`](notes/warehouse-vs-lake.md): when I'd pick pandas, Athena, or Redshift;
 what Spectrum is for; and what Iceberg fixes about the Hive-style tables I built on Day 10.
 No resources created - read, wrote, moved on.
+
+### Day 13 - Lambda
+[`lambda/row_counter.py`](lambda/row_counter.py): triggered by `s3:ObjectCreated` under `raw/`,
+logs each new Parquet file's size, row count, column count and row-group count to CloudWatch.
+
+- Reads only the **file footer** via `pq.read_metadata`, so a 50 MB upload costs two small range
+  requests instead of a 50 MB download. Lambda bills GB-seconds; downloading would be ~10x the cost.
+- pyarrow comes from the AWS-managed layer `AWSSDKPandas-Python314`. A bare Lambda has boto3 and the
+  standard library and nothing else.
+- Execution role: `AWSLambdaBasicExecutionRole` (CloudWatch Logs) + [`iam/lambda-raw-read.json`](iam/lambda-raw-read.json)
+  (`s3:GetObject` on `raw/*` only).
+
+Constraints that shape how a DS uses Lambda: 15 min max runtime, 10 GB max memory, 250 MB unzipped
+package (layers included), no GPU. Fine for glue, triggers and small scoring; wrong for training.
+
+Log line from the test upload (50 MB file, read with a single 64 KB range request):
+```
+LANDED  raw/yellow/test-trigger.parquet  50.3 MB  3,007,526 rows  19 cols  3 row groups
+```
