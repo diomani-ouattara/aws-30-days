@@ -134,5 +134,12 @@ is missing data disguised as a real value.
 
 | Split | Rows | Mean tip |
 |-------|------|----------|
-| train (Jan-Feb) | ___ | ___ |
-| valid (Mar)     | ___ | ___ |
+| train (Jan-Feb) | 4,610,759 | $4.14 |
+| valid (Mar)     | 2,570,032 | $4.28 |
+
+7.18M of 9.21M clean trips survive the credit-card + sanity filters. The two means are 3% apart - close enough that the split isn't hiding a regime change.
+
+### Day 12 - Warehouse vs lake (concept day)
+[`notes/warehouse-vs-lake.md`](notes/warehouse-vs-lake.md): when I'd pick pandas, Athena, or Redshift;
+what Spectrum is for; and what Iceberg fixes about the Hive-style tables I built on Day 10.
+No resources created - read, wrote, moved on.
