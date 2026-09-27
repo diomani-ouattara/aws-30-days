@@ -68,14 +68,25 @@ S3 storage and one EC2 hour both fit inside the free allowance.
 **What I built this week**
 
 <!-- your words: account -> IAM -> CLI -> S3 -> pandas -> EC2 -->
-
+This week, i learned how  to create 
+- an Account and guardrails, IAM: users, roles, policies, Read the IAM policy JSON structure: Effect / Action / Resource / Condition. Understand identity policies vs resource policies vs roles.
+- Create a group data-scientists with AmazonS3ReadOnlyAccess + AmazonAthenaFullAccess; add a second user to it and log in as that user.
+- CLI and boto3: Install AWS CLI v2. Create an access key for your IAM user (not root), install boto3; open a session with the profile, list buckets, print my account ID
+- S3: buckets, prefixes, storage classes: Create one bucket:-ds-lab-ca. Block public access (default). Turn on versioning.
+- Lay it out as raw/, processed/, features/, models/, outputs/. This layout is the pattern you'll see at work.
+- Upload your dataset to raw/ with aws s3 cp and aws s3 sync
+- EC2: what a cloud machine actually is: Launch a t3.micro (free-tier eligible) with Amazon Linux. Create a key pair, open SSH only to your IP in the security group.
+- SSH in, install Python, pull your S3 data with the CLI (attach an IAM role to the instance instead of copying keys — this is the right way).
+-  Look up on-demand vs spot pricing for m5.xlarge and g4dn.xlarge.
+- Terminate the instance before you close the laptop.
+- Review and cost check
 **One thing that surprised me**
 
-<!-- your words -->
+"not visible = denied" in the S3 console
 
 **What I'd tell someone starting Day 1**
 
-<!-- your words -->
+consistency is the key. one step at a time
 
 ## Week 2 - SQL over the data lake
 
@@ -162,3 +173,32 @@ Log line from the test upload (50 MB file, read with a single 64 KB range reques
 ```
 LANDED  raw/yellow/test-trigger.parquet  50.3 MB  3,007,526 rows  19 cols  3 row groups
 ```
+
+### Day 14 - Week 2 review
+Diagram: [`docs/week2-architecture.md`](docs/week2-architecture.md) - S3 prefixes, Glue catalog, Athena CTAS chain, the Lambda trigger.
+
+Month-to-date cost after two weeks: **$0.00**. Glue crawlers were the only line item worth naming
+(~$0.07 each, run twice); everything else rounds to zero. No crawler schedule, so nothing runs on its own.
+
+**What I learned in Week 2**
+this week i have learned 
+- Glue Data Catalog: The catalog is a Hive-style metastore: databases → tables → columns + where the files live.Create a database ds_lab. Run a Glue crawler over processed/; inspect the schema it inferred and fix any types it got wrong. Then create the same table by hand with a CREATE EXTERNAL TABLE DDL
+- Athena: querying S3 with SQL:Set a query result location (outputs/athena/). Run SELECT COUNT(*), a GROUP BY, a date truncation. Run the same aggregate on the CSV table and on the Parquet table. Write down the bytes scanned for each. Learn CREATE TABLE AS SELECT (CTAS) with format = 'PARQUET' — this is how you materialize a cleaned table.
+- Partitioning and file layout: Rewrite your table partitioned by year/month (partitioned_by = ARRAY['year','month'] in CTAS). Look at the resulting S3 key structure.Query one month with and without the partition filter. Bytes scanned should drop by roughly the partition fraction. Understand the small-files problem: aim for 128 MB–1 GB Parquet files, not thousands of tiny ones.
+- Feature engineering in SQL:Build a features table with CTEs: rolling averages with window functions, lag features, time-of-day and day-of-week, target encoding of a category by group. CTAS it to features/v1/ as Parquet. Include a train/validation split column based on date, not random - leakage matters. Read the result back with pandas from S3 and sanity-check nulls and ranges.
+- Warehouse vs lake (concept day): Read about Redshift (provisioned vs Serverless), Redshift Spectrum, and when a team picks a warehouse over Athena: concurrency, BI dashboards, joins across many tables, predictable latency. Understand the lakehouse pitch (Iceberg tables in S3, queryable by Athena and Redshift) — you will hear "Iceberg" in interviews this year.
+- Lambda: code without a server: Write a Python Lambda that triggers on s3:ObjectCreated under raw/, reads the new file's size and row count, and logs it to CloudWatch.Upload a file, then find the log line in CloudWatch Logs.Learn the constraints that shape how DS uses Lambda: 15-minute limit, memory up to 10 GB, no pandas by default 
+
+<!-- your words: catalog vs table, bytes scanned as the unit of cost, partition pruning, leakage in SQL -->
+
+## Week 3 - SageMaker
+
+### Day 15 - SageMaker setup and the execution role
+- Classic notebook instance `ds-lab-notebook`, `ml.t3.medium` (2 vCPU, 4 GB), chosen over Studio because it is
+  one resource with one Stop button.
+- Execution role created by SageMaker, plus inline policy [`iam/sagemaker-bucket-access.json`](iam/sagemaker-bucket-access.json):
+  read `features/` and `processed/`, read/write `models/` and `outputs/`, nothing on `raw/`.
+- [`notebooks/03_sagemaker_features.ipynb`](notebooks/03_sagemaker_features.ipynb): counted rows from footers,
+  loaded only `split=valid` (partition filter pushed down), proved the role can't write `raw/`.
+- Valid split in memory: ___ rows, ___ GB, ___ s to load.
+- Stopped the instance at the end of the session.

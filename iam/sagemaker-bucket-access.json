@@ -1,0 +1,29 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListLabBucket",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::dave-ds-lab-ca"
+    },
+    {
+      "Sid": "ReadFeaturesAndProcessed",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": [
+        "arn:aws:s3:::dave-ds-lab-ca/features/*",
+        "arn:aws:s3:::dave-ds-lab-ca/processed/*"
+      ]
+    },
+    {
+      "Sid": "ReadWriteModelsAndOutputs",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Resource": [
+        "arn:aws:s3:::dave-ds-lab-ca/models/*",
+        "arn:aws:s3:::dave-ds-lab-ca/outputs/*"
+      ]
+    }
+  ]
+}
