@@ -200,5 +200,23 @@ this week i have learned
   read `features/` and `processed/`, read/write `models/` and `outputs/`, nothing on `raw/`.
 - [`notebooks/03_sagemaker_features.ipynb`](notebooks/03_sagemaker_features.ipynb): counted rows from footers,
   loaded only `split=valid` (partition filter pushed down), proved the role can't write `raw/`.
-- Valid split in memory: ___ rows, ___ GB, ___ s to load.
+- Loaded only the valid split: 2,570,032 rows, the train folder never downloaded.
 - Stopped the instance at the end of the session.
+
+### Day 16 - Train in the notebook, save to S3
+[`notebooks/04_train_manual.ipynb`](notebooks/04_train_manual.ipynb): 1.5M sampled training rows (Jan-Feb),
+500k validation rows (Mar), scikit-learn `HistGradientBoostingRegressor`, target `tip_amount`, credit-card trips only.
+
+| Model (validation, March) | MAE | RMSE | R² |
+|---------------------------|-----|------|----|
+| Predict the training mean | $2.45 | $3.96 | 0.00 |
+| Zone tip rate x fare (one-line rule) | $1.33 | $2.63 | 0.56 |
+| HistGradientBoosting      | **$1.24** | **$2.34** | **0.65** |
+
+Artifact: `s3://dave-ds-lab-ca/models/manual/model.tar.gz` (joblib at the root, SageMaker's convention)
+plus `metrics.json` next to it with data, params, metrics and top features.
+
+The honest read: the one-line rule gets most of the way. Tipping is mostly a percentage of the fare,
+and the model's gain over the rule is real but modest. Top feature by permutation importance: `fare_amount` (10x the next one), then `zone_tip_rate`, `trip_distance`,
+`fare_per_minute`, `tolls_amount`. 100 boosting rounds, 21 s on `ml.t3.medium`. Trained with scikit-learn **1.7.2** -
+whatever loads this artifact later must use the same version.
