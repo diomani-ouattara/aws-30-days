@@ -67,7 +67,6 @@ S3 storage and one EC2 hour both fit inside the free allowance.
 
 **What I built this week**
 
-<!--  account -> IAM -> CLI -> S3 -> pandas -> EC2 -->
 This week was a lot of clicking around AWS, but it finally started to make sense. I set up my account with some guardrails, then dug into IAM-users, roles, and policies and got comfortable reading the JSON structure: Effect, Action, Resource, Condition. The lightbulb moment was seeing how identity policies, resource policies, and roles are different tools for different jobs. I made a data-scientists group with AmazonS3ReadOnlyAccess and AmazonAthenaFullAccess, added a second user to it, and logged in as that user to make sure it actually worked.
 
 On the CLI side, I installed AWS CLI v2, created an access key for my IAM user (not root) installed boto3, opened a session with that profile, listed my buckets, and printed my account ID. For S3, I learned about buckets, prefixes, and storage classes. I created ds-lab-ca, left Block Public Access on, turned on versioning, and set up raw/, processed/, features/, models/, outputs/ the same layout I’ll probably see at work. I uploaded my dataset to raw/ using both aws s3 cp and aws s3 sync.
@@ -175,8 +174,6 @@ Month-to-date cost after two weeks: **$0.00**. Glue crawlers were the only line 
 (~$0.07 each, run twice); everything else rounds to zero. No crawler schedule, so nothing runs on its own.
 
 **What I learned in Week 2**
-
-<!--  catalog vs table, bytes scanned as the unit of cost, partition pruning, leakage in SQL -->
 
 This week was all about Glue, Athena, and turning S3 into something that actually behaves like a warehouse. The Glue Data Catalog finally clicked for me as a Hive-style metastore: databases → tables → columns, plus the location of the actual files. I created a database called ds_lab, ran a Glue crawler over processed/, and then inspected the schema it guessed. Of course it got a few types wrong, so I fixed them. After that, I rebuilt the same table by hand with a CREATE EXTERNAL TABLE DDL, which made the crawler feel less magical and more like a helpful shortcut.
 
