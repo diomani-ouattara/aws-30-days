@@ -67,19 +67,13 @@ S3 storage and one EC2 hour both fit inside the free allowance.
 
 **What I built this week**
 
-<!-- your words: account -> IAM -> CLI -> S3 -> pandas -> EC2 -->
-This week, i learned how  to create 
-- an Account and guardrails, IAM: users, roles, policies, Read the IAM policy JSON structure: Effect / Action / Resource / Condition. Understand identity policies vs resource policies vs roles.
-- Create a group data-scientists with AmazonS3ReadOnlyAccess + AmazonAthenaFullAccess; add a second user to it and log in as that user.
-- CLI and boto3: Install AWS CLI v2. Create an access key for your IAM user (not root), install boto3; open a session with the profile, list buckets, print my account ID
-- S3: buckets, prefixes, storage classes: Create one bucket:-ds-lab-ca. Block public access (default). Turn on versioning.
-- Lay it out as raw/, processed/, features/, models/, outputs/. This layout is the pattern you'll see at work.
-- Upload your dataset to raw/ with aws s3 cp and aws s3 sync
-- EC2: what a cloud machine actually is: Launch a t3.micro (free-tier eligible) with Amazon Linux. Create a key pair, open SSH only to your IP in the security group.
-- SSH in, install Python, pull your S3 data with the CLI (attach an IAM role to the instance instead of copying keys — this is the right way).
--  Look up on-demand vs spot pricing for m5.xlarge and g4dn.xlarge.
-- Terminate the instance before you close the laptop.
-- Review and cost check
+<!--  account -> IAM -> CLI -> S3 -> pandas -> EC2 -->
+This week was a lot of clicking around AWS, but it finally started to make sense. I set up my account with some guardrails, then dug into IAM-users, roles, and policies and got comfortable reading the JSON structure: Effect, Action, Resource, Condition. The lightbulb moment was seeing how identity policies, resource policies, and roles are different tools for different jobs. I made a data-scientists group with AmazonS3ReadOnlyAccess and AmazonAthenaFullAccess, added a second user to it, and logged in as that user to make sure it actually worked.
+
+On the CLI side, I installed AWS CLI v2, created an access key for my IAM user (not root) installed boto3, opened a session with that profile, listed my buckets, and printed my account ID. For S3, I learned about buckets, prefixes, and storage classes. I created ds-lab-ca, left Block Public Access on, turned on versioning, and set up raw/, processed/, features/, models/, outputs/ the same layout I’ll probably see at work. I uploaded my dataset to raw/ using both aws s3 cp and aws s3 sync.
+
+Then I moved to EC2 and got a better sense of what a cloud machine really is. I launched a free-tier-eligible t3.micro with Amazon Linux, made a key pair, and locked SSH down to just my IP in the security group. I SSH’d in, installed Python, and pulled my S3 data with the CLI but I attached an IAM role to the instance instead of copying keys, which is the proper way. I also checked on-demand vs spot pricing for m5.xlarge and g4dn.xlarge. And before I closed my laptop, I terminated the instance.
+
 **One thing that surprised me**
 
 "not visible = denied" in the S3 console
@@ -181,15 +175,20 @@ Month-to-date cost after two weeks: **$0.00**. Glue crawlers were the only line 
 (~$0.07 each, run twice); everything else rounds to zero. No crawler schedule, so nothing runs on its own.
 
 **What I learned in Week 2**
-this week i have learned 
-- Glue Data Catalog: The catalog is a Hive-style metastore: databases → tables → columns + where the files live.Create a database ds_lab. Run a Glue crawler over processed/; inspect the schema it inferred and fix any types it got wrong. Then create the same table by hand with a CREATE EXTERNAL TABLE DDL
-- Athena: querying S3 with SQL:Set a query result location (outputs/athena/). Run SELECT COUNT(*), a GROUP BY, a date truncation. Run the same aggregate on the CSV table and on the Parquet table. Write down the bytes scanned for each. Learn CREATE TABLE AS SELECT (CTAS) with format = 'PARQUET' — this is how you materialize a cleaned table.
-- Partitioning and file layout: Rewrite your table partitioned by year/month (partitioned_by = ARRAY['year','month'] in CTAS). Look at the resulting S3 key structure.Query one month with and without the partition filter. Bytes scanned should drop by roughly the partition fraction. Understand the small-files problem: aim for 128 MB–1 GB Parquet files, not thousands of tiny ones.
-- Feature engineering in SQL:Build a features table with CTEs: rolling averages with window functions, lag features, time-of-day and day-of-week, target encoding of a category by group. CTAS it to features/v1/ as Parquet. Include a train/validation split column based on date, not random - leakage matters. Read the result back with pandas from S3 and sanity-check nulls and ranges.
-- Warehouse vs lake (concept day): Read about Redshift (provisioned vs Serverless), Redshift Spectrum, and when a team picks a warehouse over Athena: concurrency, BI dashboards, joins across many tables, predictable latency. Understand the lakehouse pitch (Iceberg tables in S3, queryable by Athena and Redshift) — you will hear "Iceberg" in interviews this year.
-- Lambda: code without a server: Write a Python Lambda that triggers on s3:ObjectCreated under raw/, reads the new file's size and row count, and logs it to CloudWatch.Upload a file, then find the log line in CloudWatch Logs.Learn the constraints that shape how DS uses Lambda: 15-minute limit, memory up to 10 GB, no pandas by default 
 
-<!-- your words: catalog vs table, bytes scanned as the unit of cost, partition pruning, leakage in SQL -->
+<!--  catalog vs table, bytes scanned as the unit of cost, partition pruning, leakage in SQL -->
+
+This week was all about Glue, Athena, and turning S3 into something that actually behaves like a warehouse. The Glue Data Catalog finally clicked for me as a Hive-style metastore: databases → tables → columns, plus the location of the actual files. I created a database called ds_lab, ran a Glue crawler over processed/, and then inspected the schema it guessed. Of course it got a few types wrong, so I fixed them. After that, I rebuilt the same table by hand with a CREATE EXTERNAL TABLE DDL, which made the crawler feel less magical and more like a helpful shortcut.
+
+Then came Athena. I set the query result location to outputs/athena/ and started running SQL straight against S3. I did a SELECT COUNT(*), a GROUP BY, and a date truncation. The real lesson was running the same aggregate on the CSV table and the Parquet table and writing down the bytes scanned for each. Same answer, very different scan sizes. I also learned CREATE TABLE AS SELECT with format = 'PARQUET'  that’s how you materialize a cleaned table instead of just querying raw files forever.
+
+Partitioning was next. I rewrote the table partitioned by year/month using partitioned_by = ARRAY['year','month'] in CTAS and looked at how the S3 key structure changed. Querying one month with and without the partition filter showed exactly why partitioning matters: the bytes scanned dropped by roughly the partition fraction. I also got the small-files problem drilled into me, you want 128 MB–1 GB Parquet files, not thousands of tiny ones.
+
+Feature engineering in SQL was probably the most practical part. I built a features table with CTEs: rolling averages using window functions, lag features, time-of-day and day-of-week, and target encoding of a category by group. I CTAS’d it to features/v1/ as Parquet. I made the train/validation split based on date, not random, because leakage matters. Then I read the result back with pandas from S3 and sanity-checked nulls and ranges.
+
+Concept day was warehouse vs lake. I read about Redshift, provisioned vs Serverless, Redshift Spectrum, and when a team would pick a warehouse over Athena: concurrency, BI dashboards, joins across many tables, predictable latency. I also read the lakehouse pitch, Iceberg tables in S3, queryable by both Athena and Redshift. I’ve been told I’ll hear “Iceberg” in interviews this year, so I paid attention.
+
+Finally, Lambda. I wrote a Python Lambda that triggers on s3:ObjectCreated under raw/, reads the new file’s size and row count, and logs it to CloudWatch. I uploaded a file and found the log line in CloudWatch Logs. The constraints that shape how data science teams use Lambda stuck with me: 15-minute limit, memory up to 10 GB, and no pandas by default.
 
 ## Week 3 - SageMaker
 
