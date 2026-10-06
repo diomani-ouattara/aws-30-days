@@ -293,9 +293,23 @@ scikit-learn container calls. [`scripts/batch_score.py`](scripts/batch_score.py)
 
 | | Value |
 |---|---|
-| Rows scored | ___ |
-| Transform run time / cost | ___ |
-| MAE computed in SQL | ___ (training job said $1.2361) |
+| Rows scored | 2,570,032 (all of March) |
+| Transform run time / cost | 2.5 min of scoring (6 min including machine start-up), ~$0.01 |
+| MAE computed in SQL | **$1.2355** (training job said $1.2361 - the 0.06c gain is the clip at $0) |
+
+Where the error comes from (`sql/05_score_predictions.sql`, query 2):
+
+| Actual tip | Trips | Avg actual | Avg predicted | MAE |
+|------------|------:|-----------:|--------------:|----:|
+| $0         | 132,694 | $0.00  | $3.66  | $3.66 |
+| under $2   | 300,955 | $1.29  | $2.71  | $1.43 |
+| $2-5       | 1,520,766 | $3.17 | $3.09 | **$0.62** |
+| $5-10      | 390,309 | $6.38  | $5.78  | $1.58 |
+| $10+       | 225,308 | $14.62 | $12.14 | $3.12 |
+
+The model is good where most trips are ($2-5, 59% of trips, 62c error) and pulls everything toward the middle:
+it over-predicts small tips and under-predicts big ones. The two tails - $0 and $10+, 14% of trips - make up 37% of all
+error. Nothing in the features says *who* skips the tip or *who* tips big; that's the ceiling Days 17-19 kept hitting.
 
 Why batch beats an endpoint here: predictions are needed once a day for a known set of trips. A transform job runs
 for minutes and stops; an endpoint bills every hour it's up, whether anyone calls it or not.
