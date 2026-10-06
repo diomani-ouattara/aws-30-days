@@ -281,3 +281,21 @@ from $1.2361 (deep) to $1.2428 (shallow). Tuning moves the third decimal. The fe
 
 The `slow` run was launched twice by accident. Both copies returned an identical MAE to four decimals -
 fixed seed, same data, same code: training is reproducible. All five runs together cost about $0.05.
+
+### Day 20 - Batch Transform
+[`src/inference.py`](src/inference.py): the four serving hooks (`model_fn`, `input_fn`, `predict_fn`, `output_fn`) the
+scikit-learn container calls. [`scripts/batch_score.py`](scripts/batch_score.py): `CreateModel` from
+`models/candidate/model.tar.gz`, then `CreateTransformJob` over all of March.
+
+`DataProcessing` does the join for free: `InputFilter "$[1:]"` hides the true tip from the model,
+`JoinSource "Input"` glues the prediction back onto the row, `OutputFilter "$[0,-1]"` keeps
+`actual,predicted`. [`sql/05_score_predictions.sql`](sql/05_score_predictions.sql) scores it in Athena.
+
+| | Value |
+|---|---|
+| Rows scored | ___ |
+| Transform run time / cost | ___ |
+| MAE computed in SQL | ___ (training job said $1.2361) |
+
+Why batch beats an endpoint here: predictions are needed once a day for a known set of trips. A transform job runs
+for minutes and stops; an endpoint bills every hour it's up, whether anyone calls it or not.
