@@ -227,11 +227,19 @@ whatever loads this artifact later must use the same version.
 |---|---|---|
 | Where it ran | inside the notebook | separate `ml.m5.large`, gone afterwards |
 | Training rows | 1.5M sample | 4.6M (all) |
-| Validation MAE | $1.24 | ___ |
-| Billable seconds | n/a | ___ |
-| Cost | notebook hour | ~$___ |
+| Validation MAE | $1.24 | **$1.24** (1.2365) |
+| Billable seconds | n/a | 285 |
+| Cost | notebook hour | ~$0.01 |
 
 Caveat: the job used March for early stopping, so March is slightly less "unseen" than on Day 16.
+
+Job `xgb-tips-20261005-235240`, image `sagemaker-xgboost:1.7-1`. Learning curve from the job log
+(validation MAE): round 0 $3.49 -> round 10 $1.90 -> round 50 $1.25 -> round 100 $1.237 -> stopped at round 155, $1.2365.
+Almost all the gain is in the first 50 trees; the last 100 bought a tenth of a cent.
+Train MAE $1.18 vs validation $1.24 - a small gap, so it isn't badly overfitting.
+
+Three different routes - sklearn in a notebook, sklearn as a script-mode job, built-in XGBoost as a job - all land on
+**$1.24**. That's the data's ceiling with these features, not the algorithm's. Better features would move it; more tuning won't.
 
 ### Day 18 - Script mode: bring your own code
 - [`src/train.py`](src/train.py): the Day 16 model as a script. Reads `SM_CHANNEL_TRAIN` / `SM_CHANNEL_VALIDATION`,
