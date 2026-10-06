@@ -358,11 +358,17 @@ same `inference.py`, called with `boto3` `sagemaker-runtime`. Deletes everything
 
 | | Real-time (`ml.t2.medium`) | Serverless (2 GB) |
 |---|---|---|
-| Time to InService | ___ | ___ |
-| First call | ___ ms | ___ ms (cold start) |
-| Warm call, median | ___ ms | ___ ms |
+| Existed for (create -> delete, CloudTrail) | 7.9 min | 5.0 min |
+| Requests served | 26 | 26 |
+| Model latency, typical (CloudWatch `ModelLatency` avg) | 16 ms | 33 ms |
+| Model latency, worst | 68 ms | **717 ms** (first call - cold start) |
+| SageMaker overhead per call, avg | 51 ms | 31 ms |
 | Price model | ~$___/hour while it exists | per ms of compute + per request |
 | Idle for a month (x730 h) | ~$___ | $0 |
+
+Latencies are server-side, from CloudWatch; the round trip from Edmonton adds network time on top.
+The serverless cold start is the trade: the first request after idle waits ~0.7 s while AWS loads the container,
+in exchange for paying nothing when nobody calls.
 
 Same model, same container, same `inference.py` as Day 20's batch job - only how it's called changed.
 Batch is the default for a reason: an always-on endpoint costs the same at 3 a.m. with zero traffic as at noon.
