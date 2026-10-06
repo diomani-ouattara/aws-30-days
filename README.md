@@ -392,3 +392,27 @@ Batch is the default for a reason: an always-on endpoint costs the same at 3 a.m
 | Image size (local / compressed in ECR) | 633 MB / 145 MB |
 | Local container run on 20k rows | worked - MAE $1.40, 0.2s, scikit-learn 1.9.1 |
 | SageMaker job on my image (`sk-tips-byo-20261006-111544`) | **Completed**, all 4.6M rows, MAE **$1.2391**, 138 billable s (~$0.005) |
+
+### Day 24 - Serverless inference with Lambda
+- [`lambda_model/`](lambda_model/): AWS's Lambda Python base image + pinned scikit-learn 1.9.1 + the Day 23 model
+  baked in. [`app.py`](lambda_model/app.py) loads the model **once per container** (module level), so only cold
+  starts pay for it; `handler` just predicts. JSON in, JSON out, 400 with the expected fields on bad input.
+- [`scripts/deploy_lambda_model.py`](scripts/deploy_lambda_model.py): `build`, `local` (Lambda's runtime emulator on
+  localhost), `deploy` (ECR + function + public Function URL, concurrency capped at 2), `test`, `url-off`, `delete`.
+- Same model, third way to serve it: batch job (Day 20), SageMaker endpoint (Day 22), Lambda (today).
+
+```
+curl.exe -s -X POST "<function-url>" -H "Content-Type: application/json" --data-binary "@lambda_model/sample_request.json"
+-> ___
+```
+
+| | Value |
+|---|---|
+| Cold start (CloudWatch `Init Duration`) | ___ |
+| Warm round trip from Edmonton, median | ___ |
+| Warm handler time (CloudWatch) | ___ |
+| Idle cost | $0 |
+
+Why big models don't belong here: the cold start is mostly *importing scikit-learn and loading the model*. A 2 GB
+model or a PyTorch import turns that into tens of seconds, and Lambda has no GPU. Small tabular model, spiky or tiny
+traffic: Lambda. Steady traffic or big model: an endpoint. Nobody waiting: batch.

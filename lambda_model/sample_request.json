@@ -1,0 +1,11 @@
+{
+  "trips": [
+    {"passenger_count": 1, "trip_distance": 2.1, "trip_minutes": 11, "fare_amount": 13.5, "tolls_amount": 0,
+     "avg_mph": 11.5, "fare_per_minute": 1.23, "pickup_hour": 18, "pickup_dow": 3, "is_weekend": 0, "is_rush_hour": 1,
+     "zone_tip_rate": 0.24, "zone_trips": 25000, "zone_rolling_fare_20": 14.2, "zone_prev_tip": 3.0, "zone_seconds_since_prev": 40},
+    {"passenger_count": 2, "trip_distance": 17.8, "trip_minutes": 38, "fare_amount": 70.0, "tolls_amount": 6.94,
+     "avg_mph": 28.1, "fare_per_minute": 1.84, "pickup_hour": 9, "pickup_dow": 1, "is_weekend": 0, "is_rush_hour": 1,
+     "zone_tip_rate": 0.21, "zone_trips": 60000, "zone_rolling_fare_20": 65.0, "zone_prev_tip": 15.0, "zone_seconds_since_prev": 12},
+    {"trip_distance": 0.9, "trip_minutes": 6, "fare_amount": 7.9}
+  ]
+}

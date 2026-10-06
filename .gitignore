@@ -20,3 +20,7 @@ data/
 local_model/
 mlruns/
 mlflow.db
+
+# Day 24: model files copied into lambda_model/ at build time (the source of truth is S3)
+lambda_model/model.joblib
+lambda_model/metrics.json
