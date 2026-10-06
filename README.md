@@ -313,3 +313,17 @@ error. Nothing in the features says *who* skips the tip or *who* tips big; that'
 
 Why batch beats an endpoint here: predictions are needed once a day for a known set of trips. A transform job runs
 for minutes and stops; an endpoint bills every hour it's up, whether anyone calls it or not.
+
+### Day 21 -Review
+
+This week I finally got the difference between a SageMaker notebook and a training job. A notebook is where I poke around, try things, break stuff, and figure out the code. A training job is where I hand that code to AWS and let it run on its own machine, which shuts down when it's done. They're not rivals; they're two phases of the same lifecycle. The notebook was also my biggest SageMaker cost of the week, because it bills while it sits there. So once everything launched from my laptop, I deleted it.
+
+The quota wall was real. My new account started with a limit of 0 ml.m5.large instances for training, so my first job failed with ResourceLimitExceeded. The increase request became a support case and took about a week; AWS came back with 15 for training and 8 each for batch transform and endpoints. Lesson: request quotas before the day you need them.
+
+Script mode is the "one file, two places" idea. I wrote one train.py. On my laptop I run it as a quick test on 200k rows. launch_train.py uploads that same file, and SageMaker runs it inside its scikit-learn container on all 4.6M rows. The script never changes; it just reads its input and output folders from environment variables. That gives you a clean environment every run and the same code from test to production.
+
+I logged all five training runs to a local MLflow store and compared them in its UI. MLflow tracks the parameters, metrics and artifacts of every run, so results are comparable and reproducible, and its registry versions the model that gets promoted. I accidentally ran one experiment twice, and both copies gave exactly the same MAE, so the training is reproducible.
+
+The result that stuck with me: everything landed on a validation MAE of about $1.24. scikit-learn on a sample, scikit-learn on all the data, and XGBoost on all the data: same number. Then shallow, slow and deep trees: a spread of under one cent. When different algorithms, more data and tuning all hit the same wall, the wall is the features, not the model. Deep won, and it was also the cheapest run. Batch-scoring all of March showed where the error lives: the model is off by 62¢ on typical $2–5 tips, but $0 and $10+ tips, 14% of trips, make up 37% of the error. Nothing in my features says who skips the tip or who tips big.
+
+I used batch scoring instead of an endpoint because nobody needed a prediction in real time. I needed 2.57M trips scored once. The batch job ran for 2.5 minutes and stopped. An endpoint would have billed every hour it was up, whether anyone called it or not.
