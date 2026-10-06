@@ -216,3 +216,32 @@ The honest read: the one-line rule gets most of the way. Tipping is mostly a per
 and the model's gain over the rule is real but modest. Top feature by permutation importance: `fare_amount` (10x the next one), then `zone_tip_rate`, `trip_distance`,
 `fare_per_minute`, `tolls_amount`. 100 boosting rounds, 21 s on `ml.t3.medium`. Trained with scikit-learn **1.7.2** -
 whatever loads this artifact later must use the same version.
+
+### Day 17 - Managed training job, built-in XGBoost
+- [`sql/04_xgb_channels.sql`](sql/04_xgb_channels.sql): Athena `UNLOAD` writes the full train (Jan-Feb) and
+  validation (Mar) splits as headerless CSV, target first - the built-in algorithm's input contract.
+- [`notebooks/05_train_builtin.ipynb`](notebooks/05_train_builtin.ipynb): one `CreateTrainingJob` call via boto3.
+  SageMaker ran it on its own `ml.m5.large`, wrote `models/builtin/<job>/output/model.tar.gz`, shut down.
+
+| | Day 16 (notebook) | Day 17 (training job) |
+|---|---|---|
+| Where it ran | inside the notebook | separate `ml.m5.large`, gone afterwards |
+| Training rows | 1.5M sample | 4.6M (all) |
+| Validation MAE | $1.24 | ___ |
+| Billable seconds | n/a | ___ |
+| Cost | notebook hour | ~$___ |
+
+Caveat: the job used March for early stopping, so March is slightly less "unseen" than on Day 16.
+
+### Day 18 - Script mode: bring your own code
+- [`src/train.py`](src/train.py): the Day 16 model as a script. Reads `SM_CHANNEL_TRAIN` / `SM_CHANNEL_VALIDATION`,
+  writes to `SM_MODEL_DIR`, takes hyperparameters as `--flags`. Same file runs on the laptop (reading `s3://` directly)
+  and inside SageMaker's scikit-learn container - no code changes.
+- [`scripts/launch_train.py`](scripts/launch_train.py): uploads `sourcedir.tar.gz`, calls `CreateTrainingJob` with the
+  scikit-learn 1.2-1 image. Launched from the laptop - no notebook instance running.
+- `train.py` prints `validation:mae=1.23;` lines; the job's `MetricDefinitions` regexes scrape them into the console.
+
+| Run | Where | Train rows | Validation MAE | Billable s |
+|-----|-------|-----------:|---------------:|-----------:|
+| Laptop smoke test | local, from S3 | 200k (first rows, not random) | $1.49 | 0 |
+| SageMaker job `sk-tips-20261005-171530` | `ml.m5.large` | 4.6M | **$1.24** | 219 (~$0.01) |
