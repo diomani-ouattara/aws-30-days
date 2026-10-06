@@ -33,6 +33,16 @@ INPUT = f"s3://{BUCKET}/features/xgb/validation/"
 SRC = Path(__file__).resolve().parent.parent / "src" / "inference.py"
 
 
+def execution_role(session):
+    """The SageMaker execution role, found by name - it outlives any notebook instance."""
+    iam = session.client("iam")
+    for page in iam.get_paginator("list_roles").paginate(PathPrefix="/service-role/"):
+        for r in page["Roles"]:
+            if r["RoleName"].startswith("AmazonSageMaker-ExecutionRole-"):
+                return r["Arn"]
+    raise RuntimeError("no AmazonSageMaker-ExecutionRole-* found")
+
+
 def code_tarball():
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as tar:
@@ -47,7 +57,7 @@ def main():
 
     session = boto3.Session(profile_name=PROFILE, region_name=REGION)
     sm, s3 = session.client("sagemaker"), session.client("s3")
-    role = sm.describe_notebook_instance(NotebookInstanceName="ds-lab-notebook")["RoleArn"]
+    role = execution_role(session)
 
     candidate = json.loads(s3.get_object(Bucket=BUCKET, Key="models/candidate/candidate.json")["Body"].read())
     stamp = time.strftime("%Y%m%d-%H%M%S")

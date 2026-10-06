@@ -43,6 +43,16 @@ METRICS = [
 ]
 
 
+def execution_role(session):
+    """The SageMaker execution role, found by name - it outlives any notebook instance."""
+    iam = session.client("iam")
+    for page in iam.get_paginator("list_roles").paginate(PathPrefix="/service-role/"):
+        for r in page["Roles"]:
+            if r["RoleName"].startswith("AmazonSageMaker-ExecutionRole-"):
+                return r["Arn"]
+    raise RuntimeError("no AmazonSageMaker-ExecutionRole-* found")
+
+
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--dry-run", action="store_true")
@@ -71,7 +81,7 @@ def main():
     session = boto3.Session(profile_name=PROFILE, region_name=REGION)
     sm, s3 = session.client("sagemaker"), session.client("s3")
 
-    role = sm.describe_notebook_instance(NotebookInstanceName="ds-lab-notebook")["RoleArn"]
+    role = execution_role(session)
     job_name = "sk-tips-" + (args.tag + "-" if args.tag else "") + time.strftime("%Y%m%d-%H%M%S")
     code_key = f"models/code/{job_name}/sourcedir.tar.gz"   # the role can read models/*
 
