@@ -18,3 +18,5 @@ data/
 
 # Local training output
 local_model/
+mlruns/
+mlflow.db

@@ -253,3 +253,31 @@ Three different routes - sklearn in a notebook, sklearn as a script-mode job, bu
 |-----|-------|-----------:|---------------:|-----------:|
 | Laptop smoke test | local, from S3 | 200k (first rows, not random) | $1.49 | 0 |
 | SageMaker job `sk-tips-20261005-171530` | `ml.m5.large` | 4.6M | **$1.24** | 219 (~$0.01) |
+
+### Day 19 - Track experiments
+Three more script-mode jobs, launched in parallel from the laptop, each changing one idea:
+
+| Tag | Change vs Day 18 | Question it asks |
+|-----|------------------|------------------|
+| `shallow` | `--max-leaf-nodes 15` | Does a simpler tree lose much? |
+| `deep` | `--max-leaf-nodes 255 --min-samples-leaf 50` | Does more capacity find anything? |
+| `slow` | `--learning-rate 0.03 --max-iter 1000` | Does patient boosting beat fast boosting? |
+
+[`scripts/compare_runs.py`](scripts/compare_runs.py) pulls every `sk-tips-*` job's hyperparameters, scraped metrics and
+billable seconds from SageMaker into one DataFrame -> [`notes/experiments.md`](notes/experiments.md). SageMaker already
+records all of this per job; the script only lines it up. `--mlflow` also logs the runs to a local MLflow store.
+
+Winner: `sk-tips-deep-20261005-183143` (255 leaves, min 50 per leaf), MAE **$1.2361**. Promoted to `s3://dave-ds-lab-ca/models/candidate/model.tar.gz` with `candidate.json` beside it.
+
+Result in one line: five runs, four very different tree shapes, and the whole spread is **$0.0067** -
+from $1.2361 (deep) to $1.2428 (shallow). Tuning moves the third decimal. The features set the ceiling (see Day 17).
+
+| Run | Leaves | Learning rate | Validation MAE | Billable s |
+|-----|-------:|--------------:|---------------:|-----------:|
+| deep | 255 | 0.1 | **$1.2361** | 204 |
+| slow (x2) | 63 | 0.03 | $1.2376 | 405 / 399 |
+| Day 18 default | 63 | 0.1 | $1.2378 | 219 |
+| shallow | 15 | 0.1 | $1.2428 | 239 |
+
+The `slow` run was launched twice by accident. Both copies returned an identical MAE to four decimals -
+fixed seed, same data, same code: training is reproducible. All five runs together cost about $0.05.
