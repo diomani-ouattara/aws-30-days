@@ -14,11 +14,19 @@ Laptop (reads straight from S3 via s3fs, no download; needs AWS_PROFILE=ds):
                     --validation s3://dave-ds-lab-ca/features/xgb/validation/ \
                     --model-dir local_model --max-rows 200000 --max-valid-rows 100000
 
+Day 23 adds a third place: our own Docker image ("bring your own container"). There is no
+SageMaker toolkit inside it, so nobody sets SM_* variables or turns hyperparameters into flags.
+The script falls back to SageMaker's raw file contract instead:
+    /opt/ml/input/data/<channel>/               the channel files
+    /opt/ml/model/                              write the model here
+    /opt/ml/input/config/hyperparameters.json   hyperparameters, as {"name": "value"}
+
 Kept compatible with Python 3.8 - the SageMaker scikit-learn 1.2-1 container's version.
 """
 import argparse
 import json
 import os
+import sys
 import time
 
 import joblib
@@ -36,6 +44,30 @@ FEATURES = [
 ]
 COLUMNS = [TARGET] + FEATURES
 
+OPT_ML = "/opt/ml"
+HP_FILE = os.path.join(OPT_ML, "input", "config", "hyperparameters.json")
+
+
+def _raw_container_path(*parts):
+    """A SageMaker path, but only when we're inside a raw container that has it."""
+    path = os.path.join(OPT_ML, *parts)
+    return path if os.path.isdir(path) else None
+
+
+def _hyperparameters_from_file():
+    """BYO container: SageMaker writes hyperparameters to a JSON file instead of passing flags.
+    Only used when no toolkit is present - the toolkit (sklearn container) already passes flags."""
+    if "SM_CHANNEL_TRAIN" in os.environ or not os.path.isfile(HP_FILE):
+        return []
+    with open(HP_FILE) as f:
+        hp = json.load(f)
+    argv = []
+    for k, v in hp.items():
+        if not k.startswith("sagemaker_"):
+            argv += ["--" + k, str(v)]
+    print("hyperparameters from", HP_FILE, hp)
+    return argv
+
 
 def parse_args():
     p = argparse.ArgumentParser()
@@ -49,11 +81,14 @@ def parse_args():
     p.add_argument("--max-valid-rows", type=int, default=0, help="0 = every validation row; cap it for laptop runs")
     p.add_argument("--seed", type=int, default=42)
     # Where things live - defaults come from SageMaker's environment variables
-    p.add_argument("--train", default=os.environ.get("SM_CHANNEL_TRAIN"))
-    p.add_argument("--validation", default=os.environ.get("SM_CHANNEL_VALIDATION"))
-    p.add_argument("--model-dir", default=os.environ.get("SM_MODEL_DIR", "local_model"))
+    # Where things live: toolkit env vars first, then the raw /opt/ml layout, then laptop defaults
+    p.add_argument("--train", default=os.environ.get("SM_CHANNEL_TRAIN", _raw_container_path("input", "data", "train")))
+    p.add_argument("--validation",
+                   default=os.environ.get("SM_CHANNEL_VALIDATION", _raw_container_path("input", "data", "validation")))
+    p.add_argument("--model-dir",
+                   default=os.environ.get("SM_MODEL_DIR", _raw_container_path("model") or "local_model"))
     p.add_argument("--output-dir", default=os.environ.get("SM_OUTPUT_DATA_DIR"))
-    args = p.parse_args()
+    args = p.parse_args(_hyperparameters_from_file() + sys.argv[1:])
     if not args.train or not args.validation:
         p.error("--train and --validation are required outside SageMaker")
     return args

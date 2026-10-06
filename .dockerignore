@@ -1,0 +1,4 @@
+# Only requirements-train.txt and src/ are needed - keep the build context tiny.
+*
+!requirements-train.txt
+!src/train.py

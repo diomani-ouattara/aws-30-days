@@ -372,3 +372,23 @@ in exchange for paying nothing when nobody calls.
 
 Same model, same container, same `inference.py` as Day 20's batch job - only how it's called changed.
 Batch is the default for a reason: an always-on endpoint costs the same at 3 a.m. with zero traffic as at noon.
+
+### Day 23 - Docker and ECR
+- [`Dockerfile`](Dockerfile): `python:3.12-slim`, pinned [`requirements-train.txt`](requirements-train.txt),
+  a `train` executable on PATH - because SageMaker starts every training container with `docker run <image> train`.
+- First SageMaker run on my image trained fine (MAE $1.2391) and then crashed saving the model:
+  `PermissionError: /opt/ml/model/model.joblib`. I'd made the image non-root; SageMaker mounts its own root-owned
+  `/opt/ml/model` over the image's. Training containers run as root (AWS's do too); non-root is for containers
+  that serve traffic. Worked locally because my `docker run` controlled the mount - a local test isn't the platform.
+- [`src/train.py`](src/train.py) now runs in three places with no code changes: laptop (flags), AWS's scikit-learn
+  container (toolkit sets `SM_*` and passes flags), and my own image (no toolkit - it falls back to the raw
+  `/opt/ml/input/data`, `/opt/ml/model`, `hyperparameters.json` contract).
+- [`scripts/build_push.py`](scripts/build_push.py) is the Makefile: `sample`, `build`, `run`, `push`.
+  `run` mounts data exactly where SageMaker would and sends the same `train` command.
+- ECR repo `ds-lab-train`, scan on push, lifecycle policy keeps the last 3 images.
+
+| | Value |
+|---|---|
+| Image size (local / compressed in ECR) | 633 MB / 145 MB |
+| Local container run on 20k rows | worked - MAE $1.40, 0.2s, scikit-learn 1.9.1 |
+| SageMaker job on my image (`sk-tips-byo-20261006-111544`) | **Completed**, all 4.6M rows, MAE **$1.2391**, 138 billable s (~$0.005) |

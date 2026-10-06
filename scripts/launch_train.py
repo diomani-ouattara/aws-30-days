@@ -58,6 +58,7 @@ def parse_args():
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--no-wait", action="store_true")
     p.add_argument("--tag", default="", help="short label added to the job name, e.g. lr005")
+    p.add_argument("--image", default="", help="Day 23: your own ECR image URI instead of AWS's scikit-learn image")
     # Hyperparameters forwarded to train.py unchanged
     p.add_argument("--learning-rate", type=float, default=0.1)
     p.add_argument("--max-iter", type=int, default=300)
@@ -95,11 +96,14 @@ def main():
         "sagemaker_region": REGION,
         "sagemaker_container_log_level": 20,
     }
+    if args.image:
+        # Own image: nothing inside reads sagemaker_* keys, so don't send them.
+        hp = {k: v for k, v in hp.items() if not k.startswith("sagemaker_")}
     request = dict(
         TrainingJobName=job_name,
         RoleArn=role,
         AlgorithmSpecification={
-            "TrainingImage": IMAGE, "TrainingInputMode": "File", "MetricDefinitions": METRICS,
+            "TrainingImage": args.image or IMAGE, "TrainingInputMode": "File", "MetricDefinitions": METRICS,
         },
         # Framework containers expect every hyperparameter JSON-encoded (strings get their quotes).
         HyperParameters={k: json.dumps(v) for k, v in hp.items()},
@@ -126,8 +130,12 @@ def main():
         print("\n(dry run - nothing uploaded, nothing launched)")
         return
 
-    s3.put_object(Bucket=BUCKET, Key=code_key, Body=source_tarball())
-    print("code  ->", f"s3://{BUCKET}/{code_key}")
+    if args.image:
+        # Own image: train.py is baked in, and there is no toolkit to download code or read sagemaker_* keys.
+        print("image ->", args.image)
+    else:
+        s3.put_object(Bucket=BUCKET, Key=code_key, Body=source_tarball())
+        print("code  ->", f"s3://{BUCKET}/{code_key}")
     sm.create_training_job(**request)
     print("job   ->", job_name)
     print(f"console: https://{REGION}.console.aws.amazon.com/sagemaker/home?region={REGION}#/jobs/{job_name}")
