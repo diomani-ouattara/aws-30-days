@@ -314,7 +314,7 @@ error. Nothing in the features says *who* skips the tip or *who* tips big; that'
 Why batch beats an endpoint here: predictions are needed once a day for a known set of trips. A transform job runs
 for minutes and stops; an endpoint bills every hour it's up, whether anyone calls it or not.
 
-### Day 21 -Review
+### Day 21 - Week 3 - Review
 
 This week I finally got the difference between a SageMaker notebook and a training job. A notebook is where I poke around, try things, break stuff, and figure out the code. A training job is where I hand that code to AWS and let it run on its own machine, which shuts down when it's done. They're not rivals; they're two phases of the same lifecycle. The notebook was also my biggest SageMaker cost of the week, because it bills while it sits there. So once everything launched from my laptop, I deleted it.
 
