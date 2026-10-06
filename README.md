@@ -403,15 +403,21 @@ Batch is the default for a reason: an always-on endpoint costs the same at 3 a.m
 
 ```
 curl.exe -s -X POST "<function-url>" -H "Content-Type: application/json" --data-binary "@lambda_model/sample_request.json"
--> ___
+-> {"predicted_tip": [3.45, 13.45, 2.82], "n": 3, "ignored_keys": [], "model": {"sklearn": "1.9.1", "valid_mae": 1.2391, ...}}
 ```
 
 | | Value |
 |---|---|
-| Cold start (CloudWatch `Init Duration`) | ___ |
-| Warm round trip from Edmonton, median | ___ |
-| Warm handler time (CloudWatch) | ___ |
+| Cold start, first after deploy | **~11.7 s**: init hit Lambda's 10 s limit (`Status: timeout`), then re-ran inside the first request (1.7 s) |
+| Warm round trip from Edmonton | ~220 ms (spacing of sequential calls) |
+| Warm handler time (CloudWatch `Duration`) | **~3.6 ms** |
 | Idle cost | $0 |
+
+The cold start is the story. The first container after a deploy spent 10 s initializing and was cut off at
+Lambda's 10-second init limit - pulling a 300 MB image from ECR for the first time, then importing scikit-learn.
+Lambda retried the init inside the request, which then took 1.7 s now that the image was cached. Once warm, the
+model answers in under 4 ms; almost all of the ~220 ms a caller waits is network. So the same function is either
+the fastest thing this month or an 11-second wait, depending only on whether a container is warm.
 
 Why big models don't belong here: the cold start is mostly *importing scikit-learn and loading the model*. A 2 GB
 model or a PyTorch import turns that into tens of seconds, and Lambda has no GPU. Small tabular model, spiky or tiny
