@@ -316,6 +316,28 @@ for minutes and stops; an endpoint bills every hour it's up, whether anyone call
 
 ### Day 21 - Week 3 - Review
 
+**What ran this week, from the job records** (`ml.m5.large`, ~$0.134/h list price in ca-central-1):
+
+| Job | Type | Billable s | Approx cost |
+|-----|------|-----------:|------------:|
+| `sk-tips-20261005-171530` (Day 18 default) | training | 219 | $0.008 |
+| `xgb-tips-20261005-235240` (Day 17 built-in XGBoost) | training | 285 | $0.011 |
+| `sk-tips-deep-…` (Day 19 winner) | training | 204 | $0.008 |
+| `sk-tips-slow-…` x2 (one accidental) | training | 804 | $0.030 |
+| `sk-tips-shallow-…` | training | 239 | $0.009 |
+| `tips-batch-20261005-215425` (Day 20) | transform | ~149 | $0.006 |
+| **All SageMaker jobs** | | **~1,900** | **~$0.07** |
+
+The notebook instance (`ml.t3.medium`, ~$0.05/h) ran a few hours across Days 15-17 - more than all the jobs combined.
+Cost Explorer showed **$0.00** for the month at review time: the new-account free allowance covered it.
+`outputs/athena/` had grown to 1.5 GB of saved query results; the Day 4 lifecycle rule expires them after 30 days.
+
+**Teardown.** Deleted the notebook instance - from Day 18 on every job launched from the laptop, so it was only an idle
+bill waiting to happen. Kept: the execution role (jobs need it), the `tips-candidate` model record (free; Day 22 deploys
+it), the Lambda (free when idle), all S3 data. Confirmed nothing running in ca-central-1 or us-east-1.
+
+**What I learned in Week 3**
+
 This week I finally got the difference between a SageMaker notebook and a training job. A notebook is where I poke around, try things, break stuff, and figure out the code. A training job is where I hand that code to AWS and let it run on its own machine, which shuts down when it's done. They're not rivals; they're two phases of the same lifecycle. The notebook was also my biggest SageMaker cost of the week, because it bills while it sits there. So once everything launched from my laptop, I deleted it.
 
 The quota wall was real. My new account started with a limit of 0 ml.m5.large instances for training, so my first job failed with ResourceLimitExceeded. The increase request became a support case and took about a week; AWS came back with 15 for training and 8 each for batch transform and endpoints. Lesson: request quotas before the day you need them.
