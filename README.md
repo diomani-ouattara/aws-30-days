@@ -349,3 +349,20 @@ I logged all five training runs to a local MLflow store and compared them in its
 The result that stuck with me: everything landed on a validation MAE of about $1.24. scikit-learn on a sample, scikit-learn on all the data, and XGBoost on all the data: same number. Then shallow, slow and deep trees: a spread of under one cent. When different algorithms, more data and tuning all hit the same wall, the wall is the features, not the model. Deep won, and it was also the cheapest run. Batch-scoring all of March showed where the error lives: the model is off by 62¢ on typical $2–5 tips, but $0 and $10+ tips, 14% of trips, make up 37% of the error. Nothing in my features says who skips the tip or who tips big.
 
 I used batch scoring instead of an endpoint because nobody needed a prediction in real time. I needed 2.57M trips scored once. The batch job ran for 2.5 minutes and stopped. An endpoint would have billed every hour it was up, whether anyone called it or not.
+
+## Week 4 - Deployment and the plumbing around it
+
+### Day 22 - Real-time endpoint
+[`scripts/endpoint_demo.py`](scripts/endpoint_demo.py): `EndpointConfig` + `Endpoint` from the Day 20 model record,
+same `inference.py`, called with `boto3` `sagemaker-runtime`. Deletes everything in a `finally` block.
+
+| | Real-time (`ml.t2.medium`) | Serverless (2 GB) |
+|---|---|---|
+| Time to InService | ___ | ___ |
+| First call | ___ ms | ___ ms (cold start) |
+| Warm call, median | ___ ms | ___ ms |
+| Price model | ~$___/hour while it exists | per ms of compute + per request |
+| Idle for a month (x730 h) | ~$___ | $0 |
+
+Same model, same container, same `inference.py` as Day 20's batch job - only how it's called changed.
+Batch is the default for a reason: an always-on endpoint costs the same at 3 a.m. with zero traffic as at noon.
