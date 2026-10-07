@@ -422,3 +422,36 @@ the fastest thing this month or an 11-second wait, depending only on whether a c
 Why big models don't belong here: the cold start is mostly *importing scikit-learn and loading the model*. A 2 GB
 model or a PyTorch import turns that into tens of seconds, and Lambda has no GPU. Small tabular model, spiky or tiny
 traffic: Lambda. Steady traffic or big model: an endpoint. Nobody waiting: batch.
+
+### Day 25 - SageMaker Pipelines
+[`pipeline/pipeline.py`](pipeline/pipeline.py) chains the month into one DAG that SageMaker runs and records:
+
+```mermaid
+flowchart LR
+  F[(features/v1<br/>Parquet)] --> P[Prepare<br/>processing]
+  P -- train Jan-Feb --> T[Train<br/>training job]
+  P -- validation Mar 1-15 --> T
+  P -- test Mar 16-31 --> E[Evaluate<br/>processing]
+  T -- model.tar.gz --> E
+  E -- evaluation.json --> C{test MAE <=<br/>MaxTestMAE?}
+  C -- yes --> A[Promote<br/>models/approved/]
+  C -- no --> X[Fail step<br/>nothing promoted]
+```
+
+- Every step runs in the Day 23 image (`ds-lab-train`, now with pyarrow): one set of library versions end to end.
+- [`prep.py`](pipeline/prep.py) finally fixes the Days 17-19 caveat: March is split into **validation** (1-15, early
+  stopping) and **test** (16-31, read once by [`evaluate.py`](pipeline/evaluate.py)). The reported number comes from
+  trips nothing was tuned on.
+- The Condition reads `regression.mae` out of `evaluation.json` (`JsonGet` on a `PropertyFile`); `MaxTestMAE` is a
+  pipeline parameter, so the bar can change per run without editing code.
+- [`pipeline/definition.json`](pipeline/definition.json): the JSON the SDK generates - the pipeline itself is just this
+  document; SageMaker executes it.
+
+| Run | MaxTestMAE | Result | Test MAE | Wall clock |
+|-----|-----------:|--------|---------:|-----------:|
+| 1 | 1.30 | ___ | ___ | ___ |
+| 2 | 1.20 | ___ | ___ | ___ |
+
+Alternatives you'll meet at work: Step Functions (AWS-native state machines, any service), Airflow / MWAA
+(the data-engineering default, cron + Python DAGs), plain cron on a box. SageMaker Pipelines' edge is that every step
+is already a SageMaker job, with lineage between them recorded for free.

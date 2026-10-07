@@ -1,0 +1,483 @@
+{
+  "Version": "2020-12-01",
+  "Metadata": {},
+  "Parameters": [
+    {
+      "Name": "MaxTestMAE",
+      "Type": "Float",
+      "DefaultValue": 1.3
+    },
+    {
+      "Name": "ProcessingInstanceType",
+      "Type": "String",
+      "DefaultValue": "ml.t3.large"
+    },
+    {
+      "Name": "TrainingInstanceType",
+      "Type": "String",
+      "DefaultValue": "ml.m5.large"
+    }
+  ],
+  "PipelineExperimentConfig": {
+    "ExperimentName": {
+      "Get": "Execution.PipelineName"
+    },
+    "TrialName": {
+      "Get": "Execution.PipelineExecutionId"
+    }
+  },
+  "Steps": [
+    {
+      "Name": "Prepare",
+      "Type": "Processing",
+      "Arguments": {
+        "ProcessingResources": {
+          "ClusterConfig": {
+            "InstanceType": {
+              "Get": "Parameters.ProcessingInstanceType"
+            },
+            "InstanceCount": 1,
+            "VolumeSizeInGB": 30
+          }
+        },
+        "AppSpecification": {
+          "ImageUri": "754928766714.dkr.ecr.ca-central-1.amazonaws.com/ds-lab-train:latest",
+          "ContainerEntrypoint": [
+            "python3",
+            "/opt/ml/processing/input/code/prep.py"
+          ]
+        },
+        "RoleArn": "arn:aws:iam::754928766714:role/service-role/AmazonSageMaker-ExecutionRole-20260926T214110",
+        "ProcessingInputs": [
+          {
+            "InputName": "input-1",
+            "AppManaged": false,
+            "S3Input": {
+              "S3Uri": "s3://dave-ds-lab-ca/features/v1/",
+              "LocalPath": "/opt/ml/processing/input/features",
+              "S3DataType": "S3Prefix",
+              "S3InputMode": "File",
+              "S3DataDistributionType": "FullyReplicated",
+              "S3CompressionType": "None"
+            }
+          },
+          {
+            "InputName": "code",
+            "AppManaged": false,
+            "S3Input": {
+              "S3Uri": "s3://dave-ds-lab-ca/models/pipeline-code/ds-lab-tips/code/2f5f8aa05fc237200064176939fa16588338fe082d1d0b0a0c73b757398302ec/prep.py",
+              "LocalPath": "/opt/ml/processing/input/code",
+              "S3DataType": "S3Prefix",
+              "S3InputMode": "File",
+              "S3DataDistributionType": "FullyReplicated",
+              "S3CompressionType": "None"
+            }
+          }
+        ],
+        "ProcessingOutputConfig": {
+          "Outputs": [
+            {
+              "OutputName": "train",
+              "AppManaged": false,
+              "S3Output": {
+                "S3Uri": {
+                  "Std:Join": {
+                    "On": "/",
+                    "Values": [
+                      {
+                        "Std:Join": {
+                          "On": "/",
+                          "Values": [
+                            "s3://dave-ds-lab-ca/outputs/pipeline",
+                            {
+                              "Get": "Execution.PipelineExecutionId"
+                            }
+                          ]
+                        }
+                      },
+                      "train"
+                    ]
+                  }
+                },
+                "LocalPath": "/opt/ml/processing/output/train",
+                "S3UploadMode": "EndOfJob"
+              }
+            },
+            {
+              "OutputName": "validation",
+              "AppManaged": false,
+              "S3Output": {
+                "S3Uri": {
+                  "Std:Join": {
+                    "On": "/",
+                    "Values": [
+                      {
+                        "Std:Join": {
+                          "On": "/",
+                          "Values": [
+                            "s3://dave-ds-lab-ca/outputs/pipeline",
+                            {
+                              "Get": "Execution.PipelineExecutionId"
+                            }
+                          ]
+                        }
+                      },
+                      "validation"
+                    ]
+                  }
+                },
+                "LocalPath": "/opt/ml/processing/output/validation",
+                "S3UploadMode": "EndOfJob"
+              }
+            },
+            {
+              "OutputName": "test",
+              "AppManaged": false,
+              "S3Output": {
+                "S3Uri": {
+                  "Std:Join": {
+                    "On": "/",
+                    "Values": [
+                      {
+                        "Std:Join": {
+                          "On": "/",
+                          "Values": [
+                            "s3://dave-ds-lab-ca/outputs/pipeline",
+                            {
+                              "Get": "Execution.PipelineExecutionId"
+                            }
+                          ]
+                        }
+                      },
+                      "test"
+                    ]
+                  }
+                },
+                "LocalPath": "/opt/ml/processing/output/test",
+                "S3UploadMode": "EndOfJob"
+              }
+            }
+          ]
+        },
+        "StoppingCondition": {
+          "MaxRuntimeInSeconds": 1800
+        }
+      }
+    },
+    {
+      "Name": "Train",
+      "Type": "Training",
+      "Arguments": {
+        "AlgorithmSpecification": {
+          "TrainingInputMode": "File",
+          "TrainingImage": "754928766714.dkr.ecr.ca-central-1.amazonaws.com/ds-lab-train:latest",
+          "MetricDefinitions": [
+            {
+              "Name": "validation:mae",
+              "Regex": "validation:mae=([0-9\\.]+);"
+            }
+          ]
+        },
+        "OutputDataConfig": {
+          "S3OutputPath": "s3://dave-ds-lab-ca/models/pipeline/"
+        },
+        "StoppingCondition": {
+          "MaxRuntimeInSeconds": 1800
+        },
+        "ResourceConfig": {
+          "VolumeSizeInGB": 30,
+          "InstanceCount": 1,
+          "InstanceType": {
+            "Get": "Parameters.TrainingInstanceType"
+          }
+        },
+        "RoleArn": "arn:aws:iam::754928766714:role/service-role/AmazonSageMaker-ExecutionRole-20260926T214110",
+        "InputDataConfig": [
+          {
+            "DataSource": {
+              "S3DataSource": {
+                "S3DataType": "S3Prefix",
+                "S3Uri": {
+                  "Get": "Steps.Prepare.ProcessingOutputConfig.Outputs['train'].S3Output.S3Uri"
+                },
+                "S3DataDistributionType": "FullyReplicated"
+              }
+            },
+            "ContentType": "text/csv",
+            "ChannelName": "train"
+          },
+          {
+            "DataSource": {
+              "S3DataSource": {
+                "S3DataType": "S3Prefix",
+                "S3Uri": {
+                  "Get": "Steps.Prepare.ProcessingOutputConfig.Outputs['validation'].S3Output.S3Uri"
+                },
+                "S3DataDistributionType": "FullyReplicated"
+              }
+            },
+            "ContentType": "text/csv",
+            "ChannelName": "validation"
+          }
+        ],
+        "HyperParameters": {
+          "max-leaf-nodes": "255",
+          "min-samples-leaf": "50",
+          "learning-rate": "0.1",
+          "max-iter": "300"
+        },
+        "DebugHookConfig": {
+          "S3OutputPath": "s3://dave-ds-lab-ca/models/pipeline/",
+          "CollectionConfigurations": []
+        },
+        "ProfilerConfig": {
+          "S3OutputPath": "s3://dave-ds-lab-ca/models/pipeline/",
+          "DisableProfiler": false
+        }
+      }
+    },
+    {
+      "Name": "Evaluate",
+      "Type": "Processing",
+      "Arguments": {
+        "ProcessingResources": {
+          "ClusterConfig": {
+            "InstanceType": {
+              "Get": "Parameters.ProcessingInstanceType"
+            },
+            "InstanceCount": 1,
+            "VolumeSizeInGB": 30
+          }
+        },
+        "AppSpecification": {
+          "ImageUri": "754928766714.dkr.ecr.ca-central-1.amazonaws.com/ds-lab-train:latest",
+          "ContainerEntrypoint": [
+            "python3",
+            "/opt/ml/processing/input/code/evaluate.py"
+          ]
+        },
+        "RoleArn": "arn:aws:iam::754928766714:role/service-role/AmazonSageMaker-ExecutionRole-20260926T214110",
+        "ProcessingInputs": [
+          {
+            "InputName": "input-1",
+            "AppManaged": false,
+            "S3Input": {
+              "S3Uri": {
+                "Get": "Steps.Train.ModelArtifacts.S3ModelArtifacts"
+              },
+              "LocalPath": "/opt/ml/processing/model",
+              "S3DataType": "S3Prefix",
+              "S3InputMode": "File",
+              "S3DataDistributionType": "FullyReplicated",
+              "S3CompressionType": "None"
+            }
+          },
+          {
+            "InputName": "input-2",
+            "AppManaged": false,
+            "S3Input": {
+              "S3Uri": {
+                "Get": "Steps.Prepare.ProcessingOutputConfig.Outputs['test'].S3Output.S3Uri"
+              },
+              "LocalPath": "/opt/ml/processing/test",
+              "S3DataType": "S3Prefix",
+              "S3InputMode": "File",
+              "S3DataDistributionType": "FullyReplicated",
+              "S3CompressionType": "None"
+            }
+          },
+          {
+            "InputName": "code",
+            "AppManaged": false,
+            "S3Input": {
+              "S3Uri": "s3://dave-ds-lab-ca/models/pipeline-code/ds-lab-tips/code/c5ccfbfe2f136f41659e58fca05ca11ba6fcc985223b0d489d4ae28dc742365f/evaluate.py",
+              "LocalPath": "/opt/ml/processing/input/code",
+              "S3DataType": "S3Prefix",
+              "S3InputMode": "File",
+              "S3DataDistributionType": "FullyReplicated",
+              "S3CompressionType": "None"
+            }
+          }
+        ],
+        "ProcessingOutputConfig": {
+          "Outputs": [
+            {
+              "OutputName": "evaluation",
+              "AppManaged": false,
+              "S3Output": {
+                "S3Uri": {
+                  "Std:Join": {
+                    "On": "/",
+                    "Values": [
+                      {
+                        "Std:Join": {
+                          "On": "/",
+                          "Values": [
+                            "s3://dave-ds-lab-ca/outputs/pipeline",
+                            {
+                              "Get": "Execution.PipelineExecutionId"
+                            }
+                          ]
+                        }
+                      },
+                      "evaluation"
+                    ]
+                  }
+                },
+                "LocalPath": "/opt/ml/processing/evaluation",
+                "S3UploadMode": "EndOfJob"
+              }
+            }
+          ]
+        },
+        "StoppingCondition": {
+          "MaxRuntimeInSeconds": 1800
+        }
+      },
+      "PropertyFiles": [
+        {
+          "PropertyFileName": "EvaluationReport",
+          "OutputName": "evaluation",
+          "FilePath": "evaluation.json"
+        }
+      ]
+    },
+    {
+      "Name": "MAEBelowBar",
+      "Type": "Condition",
+      "Arguments": {
+        "Conditions": [
+          {
+            "Type": "LessThanOrEqualTo",
+            "LeftValue": {
+              "Std:JsonGet": {
+                "PropertyFile": {
+                  "Get": "Steps.Evaluate.PropertyFiles.EvaluationReport"
+                },
+                "Path": "regression.mae"
+              }
+            },
+            "RightValue": {
+              "Get": "Parameters.MaxTestMAE"
+            }
+          }
+        ],
+        "IfSteps": [
+          {
+            "Name": "Promote",
+            "Type": "Processing",
+            "Arguments": {
+              "ProcessingResources": {
+                "ClusterConfig": {
+                  "InstanceType": "ml.t3.medium",
+                  "InstanceCount": 1,
+                  "VolumeSizeInGB": 30
+                }
+              },
+              "AppSpecification": {
+                "ImageUri": "754928766714.dkr.ecr.ca-central-1.amazonaws.com/ds-lab-train:latest",
+                "ContainerArguments": [
+                  "--execution",
+                  {
+                    "Get": "Execution.PipelineExecutionId"
+                  }
+                ],
+                "ContainerEntrypoint": [
+                  "python3",
+                  "/opt/ml/processing/input/code/promote.py"
+                ]
+              },
+              "RoleArn": "arn:aws:iam::754928766714:role/service-role/AmazonSageMaker-ExecutionRole-20260926T214110",
+              "ProcessingInputs": [
+                {
+                  "InputName": "input-1",
+                  "AppManaged": false,
+                  "S3Input": {
+                    "S3Uri": {
+                      "Get": "Steps.Train.ModelArtifacts.S3ModelArtifacts"
+                    },
+                    "LocalPath": "/opt/ml/processing/model",
+                    "S3DataType": "S3Prefix",
+                    "S3InputMode": "File",
+                    "S3DataDistributionType": "FullyReplicated",
+                    "S3CompressionType": "None"
+                  }
+                },
+                {
+                  "InputName": "input-2",
+                  "AppManaged": false,
+                  "S3Input": {
+                    "S3Uri": {
+                      "Get": "Steps.Evaluate.ProcessingOutputConfig.Outputs['evaluation'].S3Output.S3Uri"
+                    },
+                    "LocalPath": "/opt/ml/processing/evaluation",
+                    "S3DataType": "S3Prefix",
+                    "S3InputMode": "File",
+                    "S3DataDistributionType": "FullyReplicated",
+                    "S3CompressionType": "None"
+                  }
+                },
+                {
+                  "InputName": "code",
+                  "AppManaged": false,
+                  "S3Input": {
+                    "S3Uri": "s3://dave-ds-lab-ca/models/pipeline-code/ds-lab-tips/code/accc89465695a9ae1b2fe19981f37bcac6a387abf230162cfb7d9905772b0ee9/promote.py",
+                    "LocalPath": "/opt/ml/processing/input/code",
+                    "S3DataType": "S3Prefix",
+                    "S3InputMode": "File",
+                    "S3DataDistributionType": "FullyReplicated",
+                    "S3CompressionType": "None"
+                  }
+                }
+              ],
+              "ProcessingOutputConfig": {
+                "Outputs": [
+                  {
+                    "OutputName": "approved",
+                    "AppManaged": false,
+                    "S3Output": {
+                      "S3Uri": "s3://dave-ds-lab-ca/models/approved/",
+                      "LocalPath": "/opt/ml/processing/output",
+                      "S3UploadMode": "EndOfJob"
+                    }
+                  }
+                ]
+              },
+              "StoppingCondition": {
+                "MaxRuntimeInSeconds": 1800
+              }
+            }
+          }
+        ],
+        "ElseSteps": [
+          {
+            "Name": "MAETooHigh",
+            "Type": "Fail",
+            "Arguments": {
+              "ErrorMessage": {
+                "Std:Join": {
+                  "On": " ",
+                  "Values": [
+                    "Test MAE",
+                    {
+                      "Std:JsonGet": {
+                        "PropertyFile": {
+                          "Get": "Steps.Evaluate.PropertyFiles.EvaluationReport"
+                        },
+                        "Path": "regression.mae"
+                      }
+                    },
+                    "is above the bar of",
+                    {
+                      "Get": "Parameters.MaxTestMAE"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
