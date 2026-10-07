@@ -449,8 +449,14 @@ flowchart LR
 
 | Run | MaxTestMAE | Result | Test MAE | Wall clock |
 |-----|-----------:|--------|---------:|-----------:|
-| 1 | 1.30 | ___ | ___ | ___ |
-| 2 | 1.20 | ___ | ___ | ___ |
+| 1 `jzpma812db1f` | 1.30 | **Succeeded** - promoted to `models/approved/` | $1.2567 | 22.6 min |
+| 2 `euljh9tiuzuy` | 1.20 | **Failed** at `MAETooHigh`: *"Test MAE 1.2567 is above the bar of 1.2"* | $1.2567 | 17.8 min |
+
+The honest number: on the untouched test slice (Mar 16-31, 1,283,362 trips) the model scores **$1.2567**, about 2 cents
+worse than the $1.236 it showed on the March data that picked it in Days 17-19. That gap is the optimism the caveat
+warned about - small here, but now measured instead of guessed. The one-line rule scores $1.3494 on the same trips,
+so the model still beats it by ~9 cents. Both runs produced the identical MAE: the whole pipeline is reproducible.
+Step time is mostly machine start-up - each step took ~5-7 min wall clock for well under a minute of real work.
 
 Alternatives you'll meet at work: Step Functions (AWS-native state machines, any service), Airflow / MWAA
 (the data-engineering default, cron + Python DAGs), plain cron on a box. SageMaker Pipelines' edge is that every step
