@@ -461,3 +461,33 @@ Step time is mostly machine start-up - each step took ~5-7 min wall clock for we
 Alternatives you'll meet at work: Step Functions (AWS-native state machines, any service), Airflow / MWAA
 (the data-engineering default, cron + Python DAGs), plain cron on a box. SageMaker Pipelines' edge is that every step
 is already a SageMaker job, with lineage between them recorded for free.
+
+### Day 26 - Secrets, logs and alarms
+[`scripts/ops_demo.py`](scripts/ops_demo.py) - `secrets`, `logs`, `alarm`, `break`, `audit`, `teardown`.
+
+**Secrets and config.** A fake database login lives in Secrets Manager (`ds-lab/fake-db`, KMS-encrypted, audited,
+$0.40/month); plain config in Parameter Store (`/ds-lab/bucket`, `/ds-lab/max-test-mae`, free). Application code asks
+AWS at runtime - nothing in the repo, nothing in an `.env` file:
+
+```python
+secret = json.loads(boto3.client("secretsmanager").get_secret_value(SecretId="ds-lab/fake-db")["SecretString"])
+bucket = boto3.client("ssm").get_parameter(Name="/ds-lab/bucket")["Parameter"]["Value"]
+```
+
+Scanned the whole git history for access keys (`AKIA...`, `aws_secret_access_key`): none. The only "password"
+variables in the repo are short-lived ECR login tokens fetched at runtime.
+
+**Logs.** Every log group defaulted to *never expire*; set all of them to 30 days.
+
+**Alarm.** Metric filter on the row-counter Lambda's log turns each `[ERROR]` line into a `DsLab/RowCounterErrors`
+data point; an alarm emails me via SNS when it's >= 1 in a minute. Tested end to end by uploading a text file named
+`.parquet` to `raw/`:
+
+| | Value |
+|---|---|
+| Alarm ARN | ___ |
+| Upload -> alarm state ALARM | ___ |
+| Email received | ___ |
+
+**CloudTrail.** Every API call is already recorded for 90 days at no cost. `audit` shows who deleted the notebook,
+both endpoints and the Function URL, and that the pipeline's training jobs were created by the pipeline's own role.
