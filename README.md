@@ -511,3 +511,25 @@ No internet at all (~$0.01/hour per Availability Zone per endpoint): a CodeArtif
 
 A bank or hospital would usually choose the second option. A third option is to bake the dependencies into a custom container image (as I did on Day 23), so nothing has to be installed at runtime.
 
+
+### Day 28 - Cost, tagging and teardown
+[`scripts/teardown.py`](scripts/teardown.py) - `tag`, `plan`, `apply`, `report`, two levels:
+
+| Level | Deletes | Why |
+|-------|---------|-----|
+| default | SageMaker endpoints/notebooks/running jobs (none left), both ECR repos (~1 GB of images), the Lambda model API + role, any Function URL, the Day 6 SSH security group + key pair, 20 old S3 object versions (0.57 GB), the Day 26 secret | bills while idle, or a security leftover |
+| `--all` | + row-counter Lambda and its S3 trigger, alarm, SNS, parameters, SageMaker model + pipeline, Glue crawler + catalog, remaining lab roles, `outputs/` | free, but finished |
+
+Never touched: the bucket's current data, IAM users, the budget, the SageMaker execution role, the code.
+`plan` is always a dry run first - a teardown script that can't show its work isn't one I'd run.
+
+Tagging: everything I created from Day 13 on was tagged `project=ds-lab` at creation; the console-made pieces from
+Weeks 1-2 (bucket, row-counter Lambda, Glue, roles, log groups) were tagged retroactively, and `project` was activated
+as a cost-allocation tag so Cost Explorer can filter by it.
+
+| | Value |
+|---|---|
+| Teardown level run | ___ |
+| Cost, September (Cost Explorer) | ___ |
+| Cost, October to date | ___ |
+| What the same setup would cost running 24/7 | ___ |
