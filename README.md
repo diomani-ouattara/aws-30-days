@@ -529,7 +529,21 @@ as a cost-allocation tag so Cost Explorer can filter by it.
 
 | | Value |
 |---|---|
-| Teardown level run | ___ |
-| Cost, September (Cost Explorer) | ___ |
-| Cost, October to date | ___ |
-| What the same setup would cost running 24/7 | ___ |
+| Teardown level run | default (`apply`) - a re-run of `plan` now finds 0 items. Kept: row-counter Lambda, Athena tables, alarm (all free) |
+| Cost, September (Cost Explorer) | **$0.00** |
+| Cost, October to date | **$0.00** - the new-account free allowance covered every job, endpoint and notebook hour |
+| What the same setup would cost running 24/7 | **~$87/month** - see below |
+
+**The $87 vs $2 lesson** (AWS Pricing API, ca-central-1, list prices):
+
+| If it ran in production like this... | $/month |
+|---|---:|
+| Notebook `ml.t3.medium` left on 24/7 ($0.056/h) | $40.88 |
+| Real-time endpoint `ml.t2.medium` 24/7 ($0.061/h) | $44.53 |
+| Pipeline once a day (~25 min of machines) | ~$1.20 |
+| S3, Athena, ECR, Lambda, alarm | ~$0.50 |
+| **Total** | **~$87** |
+| **Same results, built the way this repo ended up** - notebook deleted, batch scoring instead of an endpoint, jobs that stop themselves | **~$2** |
+
+Same model, same predictions. The 40x difference is entirely in two decisions: never leave a notebook running, and
+don't stand up an endpoint for predictions nobody needs in real time.
