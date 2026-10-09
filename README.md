@@ -363,8 +363,8 @@ same `inference.py`, called with `boto3` `sagemaker-runtime`. Deletes everything
 | Model latency, typical (CloudWatch `ModelLatency` avg) | 16 ms | 33 ms |
 | Model latency, worst | 68 ms | **717 ms** (first call - cold start) |
 | SageMaker overhead per call, avg | 51 ms | 31 ms |
-| Price model | ~$___/hour while it exists | per ms of compute + per request |
-| Idle for a month (x730 h) | ~$___ | $0 |
+| Price model | $0.061/hour while it exists (AWS Pricing API, ca-central-1) | per ms of compute + per request |
+| Idle for a month (x730 h) | **~$44.53** | $0 |
 
 Latencies are server-side, from CloudWatch; the round trip from Edmonton adds network time on top.
 The serverless cold start is the trade: the first request after idle waits ~0.7 s while AWS loads the container,
@@ -503,4 +503,11 @@ interface endpoints, security groups (stateful) vs NACLs (stateless).
 
 **"My SageMaker notebook is in a private subnet and `pip install` hangs. Why, and what are the two fixes?"**
 
-<!-- your answer, one paragraph: why it hangs; fix 1; fix 2; cost / which one a regulated company picks -->
+pip install hangs because the notebook sits in a private subnet: its route table has no 0.0.0.0/0 route to an internet gateway, so requests to PyPI have nowhere to go. Nothing refuses them, so pip just waits until it times out. There are two standard fixes, depending on the organisation’s security policy:
+
+NAT gateway (~$0.05/hour plus a charge per GB): put a NAT gateway in a public subnet and point the private subnet’s 0.0.0.0/0 route at it. The notebook can download from the internet, and nothing from the internet can connect in.
+
+No internet at all (~$0.01/hour per Availability Zone per endpoint): a CodeArtifact repository that mirrors PyPI, reached through interface VPC endpoints plus a free S3 gateway endpoint. pip installs from inside AWS’s network and the notebook never touches the internet.
+
+A bank or hospital would usually choose the second option. A third option is to bake the dependencies into a custom container image (as I did on Day 23), so nothing has to be installed at runtime.
+
