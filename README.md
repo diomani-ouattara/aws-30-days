@@ -485,9 +485,22 @@ data point; an alarm emails me via SNS when it's >= 1 in a minute. Tested end to
 
 | | Value |
 |---|---|
-| Alarm ARN | ___ |
-| Upload -> alarm state ALARM | ___ |
-| Email received | ___ |
+| Alarm ARN | `arn:aws:cloudwatch:ca-central-1:754928766714:alarm:ds-lab-row-counter-errors` |
+| First Lambda error -> alarm state ALARM | ~1 min (error 12:00:18, ALARM 12:01:20) |
+| Errors counted | 3 - the first failure plus S3's two automatic retries (12:00, 12:01, 12:03) |
+
+The Lambda's own log line: `[ERROR] ArrowInvalid: Parquet magic bytes not found in footer` - the same footer read
+that works on real files, failing loudly on a fake one. Secret then scheduled for deletion (7-day recovery window).
 
 **CloudTrail.** Every API call is already recorded for 90 days at no cost. `audit` shows who deleted the notebook,
 both endpoints and the Function URL, and that the pipeline's training jobs were created by the pipeline's own role.
+
+### Day 27 - Networking, just enough (concept day)
+No resources created. [`notes/networking.md`](notes/networking.md) maps my account's default VPC as it actually is
+(read with the CLI: one `/16`, three public `/20` subnets in 1a/1b/1d, one route table sending `0.0.0.0/0` to an
+internet gateway, no NAT, no endpoints) and defines the pieces: subnets, route tables, IGW, NAT gateway, gateway vs
+interface endpoints, security groups (stateful) vs NACLs (stateless).
+
+**"My SageMaker notebook is in a private subnet and `pip install` hangs. Why, and what are the two fixes?"**
+
+<!-- your answer, one paragraph: why it hangs; fix 1; fix 2; cost / which one a regulated company picks -->
